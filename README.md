@@ -1,8 +1,7 @@
-<p align="center">
-  <img src="assets/logo.png" width="96" alt="Img2Pixel Logo" />
-</p>
-
-<h1 align="center"><b>Img2Pixel</b></h1>
+<h1 align="center">
+  <img src="assets/logo.png" width="128" alt="Img2Pixel Logo" /><br/>
+  Img2Pixel
+</h1>
 
 <p align="center">
   <img src="https://img.shields.io/github/v/release/meangrinch/Img2Pixel?label=Release&labelColor=181717&color=0877d2" />
