@@ -16,18 +16,12 @@ A browser-based tool for converting images into pixel art. Runs client-side with
 
 <br/>
 
-<div align="center">
-  <table>
-    <tr>
-      <th style="text-align: center">Original</th>
-      <th style="text-align: center">Pixelated</th>
-    </tr>
-    <tr>
-      <td><img src="docs/images/example_original.jpg" width="400" /></td>
-      <td><img src="docs/images/example_pixelated.png" width="400" /></td>
-    </tr>
-  </table>
-</div>
+<p align="center">
+  <img src="docs/images/example_original.jpg" width="400" alt="Original" />
+  <img src="docs/images/example_pixelated.png" width="400" alt="Pixelated" />
+  <br/>
+  <sub>Original → Pixelated</sub>
+</p>
 
 ---
 
