@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+
+# Editors & OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs & scratch
+*.log
+.scratch/
