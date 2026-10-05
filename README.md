@@ -54,7 +54,7 @@ python scripts/build.py
 - **Smoothing**: Remove isolated stray pixels and clean up cluster edges
 - **Outlines**: Add outer borders, edge strokes, or internal color-boundary outlines
 - **Preview**: Compare edits with a split slider, side-by-side view, hold-to-peek, pixel grid overlay, and up to 3200% zoom
-- **Export**: Save as PNG, JPEG, or WebP (native, source size, or 2x-16x upscaled), or copy to the clipboard
+- **Export**: Save as PNG, JPEG, or WebP (native or 2x-16x upscaled), or copy to the clipboard
 
 ---
 
