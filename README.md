@@ -48,13 +48,14 @@ python scripts/build.py
 ## Features
 
 - **Pixelation**: Downsample images to custom pixel-grid sizes
-- **Palettes**: Generate adaptive palettes, pick from 26 built-in palettes (Game Boy, NES, PICO-8...), or sample one from an image
-- **Style Presets**: Apply one-click looks for classic consoles and computers (Game Boy, SNES, Master System, Apple II...)
+- **Palettes**: Generate adaptive palettes, pick from 61 built-in palettes (Game Boy, NES, PICO-8...), or sample one from an image
+- **Presets**: Emulate classic consoles and computers (Game Boy, SNES, Master System, Apple II...) down to screen size, pixel shape, palette, and per-tile color limits, or apply a Greyscale or Sticker look
+- **Hardware Limits**: Cap color depth and colors per tile or scanline, with shared palettes like real consoles
 - **Dithering**: Apply error diffusion (Floyd-Steinberg, Atkinson, Burkes, Sierra) or Bayer ordered dithering (2x2, 4x4, 8x8)
 - **Smoothing**: Remove isolated stray pixels and clean up cluster edges
 - **Outlines**: Add outer borders, edge strokes, or internal color-boundary outlines
-- **Preview**: Compare edits with a split slider, side-by-side view, hold-to-peek, pixel grid overlay, and up to 3200% zoom
-- **Export**: Save as PNG, JPEG, or WebP (native or 2x-16x upscaled), or copy to the clipboard
+- **Preview**: Compare edits with a split slider, side-by-side view, hold-to-peek, pixel grid overlay, and up to 3200% zoom, with touch panning and pinch-zoom on phones and tablets
+- **Export**: Save as PNG, JPEG, or WebP (native, 2x-16x upscaled, or at the source image's size), or copy to the clipboard
 
 ---
 

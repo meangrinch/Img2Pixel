@@ -93,6 +93,7 @@
       background: var(--bg-main);
       color: var(--text-main);
       height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -190,6 +191,8 @@
       display: flex;
       min-height: 0;
       position: relative;
+      /* Clips the off-canvas inspector, which would otherwise widen the mobile layout viewport */
+      overflow: hidden;
     }
     .stage-container {
       order: 1;
@@ -520,6 +523,7 @@
     /* Viewport Work Area */
     .viewport-area {
       flex: 1;
+      touch-action: none;
       position: relative;
       overflow: hidden;
       cursor: grab;
@@ -620,14 +624,19 @@
     /* Side-by-Side Mode */
     .side-by-side-wrap {
       position: absolute;
-      transform-origin: center center;
-      display: flex;
-      gap: 16px;
-      align-items: center;
-      justify-content: center;
+      width: 0;
+      height: 0;
       user-select: none;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+    }
+
+    /* Positioned and scaled one by one in screen space by placeSideCards() */
+    .side-by-side-wrap > .side-by-side-card {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: 0 0;
     }
 
     .side-by-side-card {
@@ -782,6 +791,21 @@
     @media (max-width: 760px) {
       .stage-toolbar { flex-wrap: wrap; height: auto; padding: 6px 12px; }
       #btnSample { display: none; }
+      header { padding: 0 8px; }
+      .logo-title, .header-sep, .hud-credit { display: none; }
+      .header-actions { gap: 2px; }
+      .hud-metrics { overflow-x: auto; scrollbar-width: none; }
+      .status-panel { flex: none; white-space: nowrap; }
+      .inspector { width: min(300px, 85vw); min-width: 0; }
+    }
+    /* iOS zooms the whole page into any focused field smaller than 16px */
+    @media (pointer: coarse) {
+      select, input[type="text"], input[type="number"], textarea, .form-val-input { font-size: 16px; }
+    }
+    /* Fingers need a wider grab area than the 2px line */
+    @media (pointer: coarse) {
+      .split-divider { width: 32px; margin-left: -16px; }
+      .split-divider::before { left: 15px; }
     }
 
     .color-row { display: flex; gap: 6px; align-items: center; }
@@ -874,7 +898,7 @@
         <div class="inspector-panel active" data-panel="pixel">
           <div class="form-group">
             <label class="form-label-row">
-              <span class="form-label">Style Preset<span class="help-tip" data-tip="One-click presets that set pixelation, palette, dither, and effects.">?</span></span>
+              <span class="form-label">Preset<span class="help-tip" data-tip="Emulate classic hardware: its screen size, pixel shape, palette, and color limits. Greyscale and Sticker are looks rather than hardware.">?</span></span>
             </label>
             <select id="stylePresetSelect">
               <option value="">None</option>
@@ -893,16 +917,8 @@
                 <option value="vic20">Commodore VIC-20</option>
               </optgroup>
               <optgroup label="Styles">
-                <option value="aap64">AAP-64</option>
-                <option value="apollo">Apollo</option>
-                <option value="db16">DawnBringer 16</option>
-                <option value="db32">DawnBringer 32</option>
-                <option value="endesga32">Endesga 32</option>
                 <option value="greyscale">Greyscale</option>
-                <option value="lospec500">Lospec 500</option>
-                <option value="resurrect64">Resurrect 64</option>
                 <option value="sticker">Sticker</option>
-                <option value="sweetie16">Sweetie 16</option>
               </optgroup>
             </select>
           </div>
@@ -952,25 +968,24 @@
 
         <div class="inspector-panel" data-panel="color">
           <div class="form-group">
-            <label class="form-label-row"><span class="form-label">Palette<span class="help-tip" data-tip="Generate colors from the image, use a fixed palette, or sample one from another image.">?</span></span></label>
+            <label class="form-label-row"><span class="form-label">Source<span class="help-tip" data-tip="Generate colors from the image, use a built-in palette, or sample one from another image.">?</span></span></label>
             <select id="paramPaletteMode">
               <option value="adaptive" selected>Adaptive</option>
               <option value="web">Web Safe</option>
               <option value="mixed">Adaptive + Web Safe</option>
-              <option value="preset">Preset</option>
-              <option value="custom">From Image</option>
+              <option value="preset">Built-in</option>
+              <option value="custom">Custom</option>
             </select>
           </div>
 
-          <!-- Built-in Presets Selector -->
+          <!-- Built-in Palette Selector -->
           <div class="form-group" id="retroPresetGroup" style="display:none">
-            <label class="form-label-row"><span class="form-label">Preset<span class="help-tip" data-tip="Curated hardware palettes from classic consoles and computers.">?</span></span></label>
+            <label class="form-label-row"><span class="form-label">Palette<span class="help-tip" data-tip="Curated palettes from classic hardware and pixel artists.">?</span></span></label>
             <select id="retroPaletteSelect">
               <optgroup label="Nintendo">
                 <option value="GAMEBOY" selected>Game Boy</option>
                 <option value="nintendo-gameboy-bgb">Game Boy BGB</option>
                 <option value="GAMEBOY_POCKET">Game Boy Pocket</option>
-                <option value="kirokaze-gameboy">Kirokaze Game Boy</option>
                 <option value="GAMEBOY_COLOR_SAMPLE">Game Boy Color (Sample)</option>
                 <option value="NES">NES</option>
               </optgroup>
@@ -989,18 +1004,54 @@
                 <option value="COMMODORE_VIC20">Commodore VIC-20</option>
               </optgroup>
               <optgroup label="Community">
+                <option value="1bit-monitor-glow">1bit Monitor Glow</option>
+                <option value="2bit-demichrome">2bit Demichrome</option>
+                <option value="31">31</option>
                 <option value="AAP-64">AAP-64</option>
                 <option value="AMMO-8">Ammo-8</option>
                 <option value="APOLLO">Apollo</option>
+                <option value="berry-nebula">Berry Nebula</option>
+                <option value="blessing">Blessing</option>
+                <option value="blk-nx64">BLK NX64</option>
+                <option value="borkfest">Borkfest</option>
+                <option value="cc-29">CC-29</option>
+                <option value="crimson">Crimson</option>
+                <option value="cryptic-ocean">Cryptic Ocean</option>
+                <option value="cyclope6">Cyclope6</option>
                 <option value="DawnBringer-16">DawnBringer 16</option>
                 <option value="DawnBringer-32">DawnBringer 32</option>
-                <option value="DISCORD-2021">Discord 2021</option>
+                <option value="downgraded-32">Downgraded 32</option>
                 <option value="ENDESGA-32">Endesga 32</option>
+                <option value="endesga-64">Endesga 64</option>
+                <option value="ephemera">Ephemera</option>
+                <option value="fantasy-24">Fantasy 24</option>
+                <option value="fiery-plague-gb">Fiery Plague GB</option>
                 <option value="GREYSCALE">Greyscale</option>
+                <option value="ice-cream-gb">Ice Cream GB</option>
+                <option value="ink">Ink</option>
                 <option value="JOURNEY">Journey</option>
+                <option value="justparchment8">JustParchment8</option>
+                <option value="kirokaze-gameboy">Kirokaze Game Boy</option>
                 <option value="LOSPEC-500">Lospec 500</option>
+                <option value="lost-century">Lost Century</option>
+                <option value="maggot24">Maggot 24</option>
+                <option value="midnight-ablaze">Midnight Ablaze</option>
+                <option value="mulfok32">Mulfok32</option>
+                <option value="mushroom">Mushroom</option>
+                <option value="na16">NA16</option>
+                <option value="nyx8">Nyx8</option>
+                <option value="oil-6">Oil 6</option>
+                <option value="pastel-qt">Pastel QT</option>
+                <option value="pear36">Pear36</option>
+                <option value="pollen8">Pollen8</option>
                 <option value="RESURRECT-64">Resurrect 64</option>
+                <option value="rust-gold-8">Rust Gold 8</option>
+                <option value="slso8">SLSO8</option>
+                <option value="sunset-red">Sunset Red</option>
                 <option value="Sweetie-16">Sweetie 16</option>
+                <option value="twilight-5">Twilight 5</option>
+                <option value="velvet-cherry-gb">Velvet Cherry GB</option>
+                <option value="waldgeist">Waldgeist</option>
               </optgroup>
             </select>
           </div>
@@ -1025,7 +1076,7 @@
 
           <!-- Custom Palette File Upload -->
           <div class="form-group" id="customPaletteGroup" style="display:none">
-            <label class="form-label-row"><span class="form-label">Palette Image<span class="help-tip" data-tip="Sample a palette from an uploaded image.">?</span></span></label>
+            <label class="form-label-row"><span class="form-label">Image<span class="help-tip" data-tip="Sample a palette from an uploaded image.">?</span></span></label>
             <button class="btn" id="btnUploadPalette">Choose Image…</button>
             <input type="file" id="paletteFileInput" accept="image/*" hidden>
           </div>
@@ -1148,9 +1199,9 @@
           <div class="form-group">
             <div class="form-label-row">
               <span class="form-label">Saturation<span class="help-tip" data-tip="Boost saturation before palette reduction to keep colors vibrant.">?</span></span>
-              <input type="number" class="form-val-input" id="valEnhance" value="1.5" min="0" max="5" step="0.1">
+              <input type="number" class="form-val-input" id="valEnhance" value="1.2" min="0" max="5" step="0.1">
             </div>
-            <input type="range" id="paramEnhance" min="0.0" max="5.0" step="0.1" value="1.5">
+            <input type="range" id="paramEnhance" min="0.0" max="5.0" step="0.1" value="1.2">
           </div>
           <div class="form-group">
             <div class="form-label-row">
@@ -1330,9 +1381,9 @@
         <div class="form-group">
           <label class="form-label">Size<span class="help-tip" data-tip="Output size: native sprite pixels or 2x–16x upscale.">?</span></label>
           <select id="exportScaleSelect">
-            <option value="native">1× (Native)</option>
+            <option value="native" selected>1× (Native)</option>
             <option value="2">2×</option>
-            <option value="4" selected>4×</option>
+            <option value="4">4×</option>
             <option value="8">8×</option>
             <option value="16">16×</option>
             <option value="original">Source Size</option>
@@ -1388,6 +1439,10 @@
             <tr>
               <td><kbd>Mouse Wheel</kbd></td>
               <td>Zoom in / out</td>
+            </tr>
+            <tr>
+              <td><kbd>Pinch</kbd></td>
+              <td>Zoom in / out (touch)</td>
             </tr>
             <tr>
               <td><kbd>+</kbd> / <kbd>-</kbd></td>
@@ -1580,15 +1635,6 @@
     "#94e089",
     "#8071cc",
     "#ffffb2"
-  ],
-  "DISCORD-2021": [
-    "#ed4245",
-    "#fee75c",
-    "#57f287",
-    "#5865f2",
-    "#eb459e",
-    "#ffffff",
-    "#000000"
   ],
   "ENDESGA-32": [
     "#be4a2f",
@@ -2417,6 +2463,641 @@
     "#94b0c2",
     "#566c86",
     "#333c57"
+  ],
+  "maggot24": [
+    "#201114",
+    "#30171a",
+    "#4a0a00",
+    "#630f00",
+    "#742401",
+    "#8f2100",
+    "#a13300",
+    "#b45102",
+    "#c67c3c",
+    "#c8a589",
+    "#ded6c3",
+    "#efede9",
+    "#b6b6b4",
+    "#85977f",
+    "#7b7d72",
+    "#6a756f",
+    "#786959",
+    "#5d5656",
+    "#475059",
+    "#514656",
+    "#85383b",
+    "#543634",
+    "#492b1d",
+    "#212226"
+  ],
+  "1bit-monitor-glow": [
+    "#222323",
+    "#f0f6f0"
+  ],
+  "2bit-demichrome": [
+    "#211e20",
+    "#555568",
+    "#a0a08b",
+    "#e9efec"
+  ],
+  "31": [
+    "#636663",
+    "#87857c",
+    "#bcad9f",
+    "#f2b888",
+    "#eb9661",
+    "#b55945",
+    "#734c44",
+    "#3d3333",
+    "#593e47",
+    "#7a5859",
+    "#a57855",
+    "#de9f47",
+    "#fdd179",
+    "#fee1b8",
+    "#d4c692",
+    "#a6b04f",
+    "#819447",
+    "#44702d",
+    "#2f4d2f",
+    "#546756",
+    "#89a477",
+    "#a4c5af",
+    "#cae6d9",
+    "#f1f6f0",
+    "#d5d6db",
+    "#bbc3d0",
+    "#96a9c1",
+    "#6c81a1",
+    "#405273",
+    "#303843",
+    "#14233a"
+  ],
+  "berry-nebula": [
+    "#6ceded",
+    "#6cb9c9",
+    "#6d85a5",
+    "#6e5181",
+    "#6f1d5c",
+    "#4f1446",
+    "#2e0a30",
+    "#0d001a"
+  ],
+  "blessing": [
+    "#74569b",
+    "#96fbc7",
+    "#f7ffae",
+    "#ffb3cb",
+    "#d8bfd8"
+  ],
+  "blk-nx64": [
+    "#000000",
+    "#12173d",
+    "#293268",
+    "#464b8c",
+    "#6b74b2",
+    "#909edd",
+    "#c1d9f2",
+    "#ffffff",
+    "#a293c4",
+    "#7b6aa5",
+    "#53427f",
+    "#3c2c68",
+    "#431e66",
+    "#5d2f8c",
+    "#854cbf",
+    "#b483ef",
+    "#8cff9b",
+    "#42bc7f",
+    "#22896e",
+    "#14665b",
+    "#0f4a4c",
+    "#0a2a33",
+    "#1d1a59",
+    "#322d89",
+    "#354ab2",
+    "#3e83d1",
+    "#50b9eb",
+    "#8cdaff",
+    "#53a1ad",
+    "#3b768f",
+    "#21526b",
+    "#163755",
+    "#008782",
+    "#00aaa5",
+    "#27d3cb",
+    "#78fae6",
+    "#cdc599",
+    "#988f64",
+    "#5c5d41",
+    "#353f23",
+    "#919b45",
+    "#afd370",
+    "#ffe091",
+    "#ffaa6e",
+    "#ff695a",
+    "#b23c40",
+    "#ff6675",
+    "#dd3745",
+    "#a52639",
+    "#721c2f",
+    "#b22e69",
+    "#e54286",
+    "#ff6eaf",
+    "#ffa5d5",
+    "#ffd3ad",
+    "#cc817a",
+    "#895654",
+    "#61393b",
+    "#3f1f3c",
+    "#723352",
+    "#994c69",
+    "#c37289",
+    "#f29faa",
+    "#ffccd0"
+  ],
+  "borkfest": [
+    "#dfd785",
+    "#ebc275",
+    "#f39949",
+    "#ff7831",
+    "#ca5a2e",
+    "#963c3c",
+    "#3a2802",
+    "#202215"
+  ],
+  "cc-29": [
+    "#f2f0e5",
+    "#b8b5b9",
+    "#868188",
+    "#646365",
+    "#45444f",
+    "#3a3858",
+    "#212123",
+    "#352b42",
+    "#43436a",
+    "#4b80ca",
+    "#68c2d3",
+    "#a2dcc7",
+    "#ede19e",
+    "#d3a068",
+    "#b45252",
+    "#6a536e",
+    "#4b4158",
+    "#80493a",
+    "#a77b5b",
+    "#e5ceb4",
+    "#c2d368",
+    "#8ab060",
+    "#567b79",
+    "#4e584a",
+    "#7b7243",
+    "#b2b47e",
+    "#edc8c4",
+    "#cf8acb",
+    "#5f556a"
+  ],
+  "crimson": [
+    "#eff9d6",
+    "#ba5044",
+    "#7a1c4b",
+    "#1b0326"
+  ],
+  "cryptic-ocean": [
+    "#2a173b",
+    "#3f2c5f",
+    "#443f7b",
+    "#4c5c87",
+    "#69809e",
+    "#95c5ac"
+  ],
+  "cyclope6": [
+    "#411d31",
+    "#631b34",
+    "#32535f",
+    "#0b8a8f",
+    "#0eaf9b",
+    "#30e1b9"
+  ],
+  "downgraded-32": [
+    "#7b334c",
+    "#a14d55",
+    "#c77369",
+    "#e3a084",
+    "#f2cb9b",
+    "#d37b86",
+    "#af5d8b",
+    "#804085",
+    "#5b3374",
+    "#412051",
+    "#5c486a",
+    "#887d8d",
+    "#b8b4b2",
+    "#dcdac9",
+    "#ffffe0",
+    "#b6f5db",
+    "#89d9d9",
+    "#72b6cf",
+    "#5c8ba8",
+    "#4e6679",
+    "#464969",
+    "#44355d",
+    "#3d003d",
+    "#621748",
+    "#942c4b",
+    "#c7424f",
+    "#e06b51",
+    "#f2a561",
+    "#fcef8d",
+    "#b1d480",
+    "#80b878",
+    "#658d78"
+  ],
+  "endesga-64": [
+    "#ff0040",
+    "#131313",
+    "#1b1b1b",
+    "#272727",
+    "#3d3d3d",
+    "#5d5d5d",
+    "#858585",
+    "#b4b4b4",
+    "#ffffff",
+    "#c7cfdd",
+    "#92a1b9",
+    "#657392",
+    "#424c6e",
+    "#2a2f4e",
+    "#1a1932",
+    "#0e071b",
+    "#1c121c",
+    "#391f21",
+    "#5d2c28",
+    "#8a4836",
+    "#bf6f4a",
+    "#e69c69",
+    "#f6ca9f",
+    "#f9e6cf",
+    "#edab50",
+    "#e07438",
+    "#c64524",
+    "#8e251d",
+    "#ff5000",
+    "#ed7614",
+    "#ffa214",
+    "#ffc825",
+    "#ffeb57",
+    "#d3fc7e",
+    "#99e65f",
+    "#5ac54f",
+    "#33984b",
+    "#1e6f50",
+    "#134c4c",
+    "#0c2e44",
+    "#00396d",
+    "#0069aa",
+    "#0098dc",
+    "#00cdf9",
+    "#0cf1ff",
+    "#94fdff",
+    "#fdd2ed",
+    "#f389f5",
+    "#db3ffd",
+    "#7a09fa",
+    "#3003d9",
+    "#0c0293",
+    "#03193f",
+    "#3b1443",
+    "#622461",
+    "#93388f",
+    "#ca52c9",
+    "#c85086",
+    "#f68187",
+    "#f5555d",
+    "#ea323c",
+    "#c42430",
+    "#891e2b",
+    "#571c27"
+  ],
+  "ephemera": [
+    "#392c31",
+    "#4a3c4a",
+    "#5a555a",
+    "#62696a",
+    "#73817b",
+    "#83898b",
+    "#83918b",
+    "#a49da4",
+    "#c5b2bd",
+    "#d5becd",
+    "#ded6de",
+    "#e6eaee"
+  ],
+  "fantasy-24": [
+    "#1f240a",
+    "#39571c",
+    "#a58c27",
+    "#efac28",
+    "#efd8a1",
+    "#ab5c1c",
+    "#183f39",
+    "#ef692f",
+    "#efb775",
+    "#a56243",
+    "#773421",
+    "#724113",
+    "#2a1d0d",
+    "#392a1c",
+    "#684c3c",
+    "#927e6a",
+    "#276468",
+    "#ef3a0c",
+    "#45230d",
+    "#3c9f9c",
+    "#9b1a0a",
+    "#36170c",
+    "#550f0a",
+    "#300f0a"
+  ],
+  "ice-cream-gb": [
+    "#7c3f58",
+    "#eb6b6f",
+    "#f9a875",
+    "#fff6d3"
+  ],
+  "ink": [
+    "#1f1f29",
+    "#413a42",
+    "#596070",
+    "#96a2b3",
+    "#eaf0d8"
+  ],
+  "justparchment8": [
+    "#292418",
+    "#524839",
+    "#73654a",
+    "#8b7d62",
+    "#a48d6a",
+    "#bda583",
+    "#cdba94",
+    "#e6ceac"
+  ],
+  "lost-century": [
+    "#d1b187",
+    "#c77b58",
+    "#ae5d40",
+    "#79444a",
+    "#4b3d44",
+    "#ba9158",
+    "#927441",
+    "#4d4539",
+    "#77743b",
+    "#b3a555",
+    "#d2c9a5",
+    "#8caba1",
+    "#4b726e",
+    "#574852",
+    "#847875",
+    "#ab9b8e"
+  ],
+  "midnight-ablaze": [
+    "#ff8274",
+    "#d53c6a",
+    "#7c183c",
+    "#460e2b",
+    "#31051e",
+    "#1f0510",
+    "#130208"
+  ],
+  "mulfok32": [
+    "#5ba675",
+    "#6bc96c",
+    "#abdd64",
+    "#fcef8d",
+    "#ffb879",
+    "#ea6262",
+    "#cc425e",
+    "#a32858",
+    "#751756",
+    "#390947",
+    "#611851",
+    "#873555",
+    "#a6555f",
+    "#c97373",
+    "#f2ae99",
+    "#ffc3f2",
+    "#ee8fcb",
+    "#d46eb3",
+    "#873e84",
+    "#1f102a",
+    "#4a3052",
+    "#7b5480",
+    "#a6859f",
+    "#d9bdc8",
+    "#ffffff",
+    "#aee2ff",
+    "#8db7ff",
+    "#6d80fa",
+    "#8465ec",
+    "#834dc4",
+    "#7d2da0",
+    "#4e187c"
+  ],
+  "mushroom": [
+    "#2e222f",
+    "#45293f",
+    "#7a3045",
+    "#993d41",
+    "#cd683d",
+    "#fbb954",
+    "#f2ec8b",
+    "#b0a987",
+    "#997f73",
+    "#665964",
+    "#443846",
+    "#576069",
+    "#788a87",
+    "#a9b2a2"
+  ],
+  "na16": [
+    "#8c8fae",
+    "#584563",
+    "#3e2137",
+    "#9a6348",
+    "#d79b7d",
+    "#f5edba",
+    "#c0c741",
+    "#647d34",
+    "#e4943a",
+    "#9d303b",
+    "#d26471",
+    "#70377f",
+    "#7ec4c1",
+    "#34859d",
+    "#17434b",
+    "#1f0e1c"
+  ],
+  "nyx8": [
+    "#08141e",
+    "#0f2a3f",
+    "#20394f",
+    "#f6d6bd",
+    "#c3a38a",
+    "#997577",
+    "#816271",
+    "#4e495f"
+  ],
+  "oil-6": [
+    "#fbf5ef",
+    "#f2d3ab",
+    "#c69fa5",
+    "#8b6d9c",
+    "#494d7e",
+    "#272744"
+  ],
+  "pastel-qt": [
+    "#cb8175",
+    "#e2a97e",
+    "#f0cf8e",
+    "#f6edcd",
+    "#a8c8a6",
+    "#6d8d8a",
+    "#655057"
+  ],
+  "pear36": [
+    "#5e315b",
+    "#8c3f5d",
+    "#ba6156",
+    "#f2a65e",
+    "#ffe478",
+    "#cfff70",
+    "#8fde5d",
+    "#3ca370",
+    "#3d6e70",
+    "#323e4f",
+    "#322947",
+    "#473b78",
+    "#4b5bab",
+    "#4da6ff",
+    "#66ffe3",
+    "#ffffeb",
+    "#c2c2d1",
+    "#7e7e8f",
+    "#606070",
+    "#43434f",
+    "#272736",
+    "#3e2347",
+    "#57294b",
+    "#964253",
+    "#e36956",
+    "#ffb570",
+    "#ff9166",
+    "#eb564b",
+    "#b0305c",
+    "#73275c",
+    "#422445",
+    "#5a265e",
+    "#80366b",
+    "#bd4882",
+    "#ff6b97",
+    "#ffb5b5"
+  ],
+  "pollen8": [
+    "#73464c",
+    "#ab5675",
+    "#ee6a7c",
+    "#ffa7a5",
+    "#ffe07e",
+    "#ffe7d6",
+    "#72dcbb",
+    "#34acba"
+  ],
+  "rust-gold-8": [
+    "#f6cd26",
+    "#ac6b26",
+    "#563226",
+    "#331c17",
+    "#bb7f57",
+    "#725956",
+    "#393939",
+    "#202020"
+  ],
+  "slso8": [
+    "#0d2b45",
+    "#203c56",
+    "#544e68",
+    "#8d697a",
+    "#d08159",
+    "#ffaa5e",
+    "#ffd4a3",
+    "#ffecd6"
+  ],
+  "sunset-red": [
+    "#0d101b",
+    "#281a2d",
+    "#6b2341",
+    "#af2747",
+    "#ee243d"
+  ],
+  "twilight-5": [
+    "#fbbbad",
+    "#ee8695",
+    "#4a7a96",
+    "#333f58",
+    "#292831"
+  ],
+  "velvet-cherry-gb": [
+    "#2d162c",
+    "#412752",
+    "#683a68",
+    "#9775a6"
+  ],
+  "waldgeist": [
+    "#a6884a",
+    "#906c30",
+    "#825337",
+    "#83473d",
+    "#66352e",
+    "#562923",
+    "#612638",
+    "#46332c",
+    "#323230",
+    "#3e4055",
+    "#382d35",
+    "#323b42",
+    "#1f2d36",
+    "#141f25",
+    "#0b1016",
+    "#245273",
+    "#4e7499",
+    "#5e7e8b",
+    "#798a92",
+    "#879ea3",
+    "#e3ddd1",
+    "#bdbbae",
+    "#af9e94",
+    "#907c75",
+    "#a29f7e",
+    "#969372",
+    "#78735d",
+    "#696353",
+    "#4f493b",
+    "#212528",
+    "#595c55",
+    "#4b4e4f",
+    "#57562a",
+    "#675f30",
+    "#727234",
+    "#73804b",
+    "#5f7b53",
+    "#3b6d62",
+    "#32534a"
+  ],
+  "fiery-plague-gb": [
+    "#1a2129",
+    "#312137",
+    "#512839",
+    "#713141"
   ]
 };
 
@@ -5784,12 +6465,33 @@
 
     // --- Interactive Viewport & Pan / Zoom ---
 
+    // Low enough that two very large images (e.g. 11k px wide) still fit side by side
+    const MIN_ZOOM = 0.01;
+
+    // On-screen gap between side-by-side cards
+    const SIDE_GAP = 16;
+
+    // Each card gets its own screen-space transform, centered on the pan point. Scaling one wrapper around
+    // both cards made it as wide as both images, and Chrome stops painting a scaled layer's content ~16k
+    // pre-zoom pixels in (two 11k-px photos lost half the right one); it also keeps the gap free of the
+    // fractional layout offsets the browser would snap and the zoom would magnify
+    function placeSideCards() {
+      const z = state.zoom;
+      const cards = [...sideBySideWrap.children].filter((c) => c.style.display !== 'none');
+      const total = cards.reduce((sum, c) => sum + c.offsetWidth * z, 0) + SIDE_GAP * (cards.length - 1);
+      let x = state.panX - total / 2;
+      for (const c of cards) {
+        c.style.transform = `translate(${x}px, ${state.panY - c.offsetHeight * z / 2}px) scale(${z})`;
+        x += c.offsetWidth * z + SIDE_GAP;
+      }
+    }
+
     function updateTransform() {
       const scale = state.zoom;
       zoomLevelText.textContent = `${Math.round(scale * 100)}%`;
 
       if (state.viewMode === 'side') {
-        sideBySideWrap.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${scale})`;
+        placeSideCards();
       } else {
         canvasPanWrap.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${scale})`;
       }
@@ -5823,7 +6525,10 @@
         label.style.display = visible ? 'block' : 'none';
         if (!visible) return;
         // Sits on top of the canvas, sticking to the viewport top once zoomed past it
-        const top = Math.max(vpRect.top, r.top - label.offsetHeight);
+        // Bottom edge on a whole device pixel about one CSS pixel past the card's top: the card's first rows
+        // paint antialiased, and an exact edge left a seam of 1-2 device pixels, worst on scaled displays
+        const dpr = window.devicePixelRatio || 1;
+        const top = Math.max(vpRect.top, (Math.ceil(r.top * dpr) + Math.ceil(dpr)) / dpr - label.offsetHeight);
         label.style.left = `${left - vpRect.left}px`;
         label.style.width = `${right - left}px`;
         label.style.top = `${top - vpRect.top}px`;
@@ -5836,7 +6541,7 @@
     }
 
     function zoomOut() {
-      state.zoom = Math.max(0.05, state.zoom * 0.8);
+      state.zoom = Math.max(MIN_ZOOM, state.zoom * 0.8);
       updateTransform();
     }
 
@@ -5849,13 +6554,19 @@
     }
 
     function zoomAt(zoomFactor, clientX, clientY) {
-      const newZoom = Math.max(0.05, Math.min(32.0, state.zoom * zoomFactor));
+      const newZoom = Math.max(MIN_ZOOM, Math.min(32.0, state.zoom * zoomFactor));
       if (newZoom === state.zoom) return;
 
       if (viewportArea && typeof viewportArea.getBoundingClientRect === 'function') {
         const rect = viewportArea.getBoundingClientRect();
-        const mouseX = clientX - rect.left - rect.width / 2;
+        let mouseX = clientX - rect.left - rect.width / 2;
         const mouseY = clientY - rect.top - rect.height / 2;
+
+        // The side-by-side gap is fixed on screen, so each card sits half of it off the scaled layout
+        if (state.viewMode === 'side') {
+          const gapMid = sideBySideWrap.firstElementChild.getBoundingClientRect().right + SIDE_GAP / 2;
+          mouseX -= Math.sign(clientX - gapMid) * SIDE_GAP / 2;
+        }
 
         const effectiveFactor = newZoom / state.zoom;
         state.panX -= (mouseX - state.panX) * (effectiveFactor - 1);
@@ -5880,18 +6591,18 @@
       const w2 = state.lastResult ? state.lastResult.outputWidth : w1;
       const h2 = state.lastResult ? state.lastResult.outputHeight : h1;
 
-      // Side-by-side: 2 flat cards with 16px gap
-      const sideContentW = w1 + w2 + 16;
+      // Side-by-side: 2 flat cards; the gap between them is fixed on screen
+      const sideContentW = w1 + w2;
 
       const isSide = forceSide || state.viewMode === 'side';
       const contentW = isSide ? sideContentW : w1;
       // Title labels sit above the cards in screen space, so reserve viewport pixels for them
       const fitScale = isSide
-        ? Math.min(vpW / contentW, Math.max(1, vpH - 26) / Math.max(h1, h2))
+        ? Math.min((vpW - SIDE_GAP) / contentW, Math.max(1, vpH - 26) / Math.max(h1, h2))
         : Math.min(vpW / contentW, vpH / h1);
 
       // Floor to integer percentage so zoom never exceeds viewport bounds
-      const scale = Math.max(0.05, Math.min(32.0, Math.floor(fitScale * 100) / 100));
+      const scale = Math.max(MIN_ZOOM, Math.min(32.0, Math.floor(fitScale * 100) / 100));
 
       state.zoom = scale;
       if (isInitial) {
@@ -5976,14 +6687,51 @@
     }, { passive: false });
 
     // Pan mouse drag
-    viewportArea.addEventListener('mousedown', (e) => {
+    // Touch points on the viewport; two at once pinch-zoom (and pan) about their midpoint
+    const pinch = new Map();
+    let pinchDist = 0;
+    let pinchX = 0;
+    let pinchY = 0;
+
+    function pinchMove() {
+      const [a, b] = pinch.values();
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const x = (a.clientX + b.clientX) / 2;
+      const y = (a.clientY + b.clientY) / 2;
+      if (pinchDist && dist) {
+        state.panX += x - pinchX;
+        state.panY += y - pinchY;
+        const zoom = state.zoom;
+        zoomAt(dist / pinchDist, x, y);
+        // zoomAt redraws only when the zoom changed; at a zoom limit the midpoint pan still needs one
+        if (state.zoom === zoom) updateTransform();
+      }
+      pinchDist = dist;
+      pinchX = x;
+      pinchY = y;
+    }
+
+    viewportArea.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'touch') {
+        pinch.set(e.pointerId, e);
+        if (pinch.size >= 2) {
+          state.isPanning = false;
+          pinchDist = 0;
+          pinchMove();
+          return;
+        }
+      }
       if (e.target === splitDivider) return;
       state.isPanning = true;
       state.panLastX = e.clientX;
       state.panLastY = e.clientY;
     });
 
-    window.addEventListener('mousemove', (e) => {
+    window.addEventListener('pointermove', (e) => {
+      if (pinch.has(e.pointerId)) {
+        pinch.set(e.pointerId, e);
+        if (pinch.size >= 2) return pinchMove();
+      }
       if (state.isPanning) {
         // Apply movement deltas so zooming (which also moves pan) mid-drag doesn't snap back
         state.panX += e.clientX - state.panLastX;
@@ -5999,10 +6747,13 @@
       }
     });
 
-    window.addEventListener('mouseup', () => {
+    function endDrag(e) {
+      pinch.delete(e.pointerId);
       state.isPanning = false;
       state.isDraggingSplit = false;
-    });
+    }
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
 
     window.addEventListener('resize', () => {
       if (state.sourceImage) {
@@ -6011,7 +6762,7 @@
     });
 
     // Split View Controller
-    splitDivider.addEventListener('mousedown', (e) => {
+    splitDivider.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       state.isDraggingSplit = true;
     });
@@ -6066,7 +6817,7 @@
       getState: () => state
     };
 
-    // Style Presets: target box is the hardware screen in hardware pixels
+    // Presets: hardware emulation (target box is the screen in hardware pixels), plus the Greyscale and Sticker looks
     const PRESET_CONFIGS = {
       gameboy: {
         targetWidth: 160,
@@ -6108,6 +6859,10 @@
         targetWidth: 256,
         targetHeight: 224,
         pixelAspect: 8 / 7,
+        tileSize: 8,
+        tileColors: 16,
+        tilePalettes: 8,
+        tileSharedColor: true,
         downsampleMethod: 'box',
         paletteMode: 'adaptive',
         quantizerMethod: 'wu',
@@ -6255,150 +7010,6 @@
         strokeOpacity: 0.0,
         resize: false
       },
-      apollo: {
-        targetWidth: 240,
-        targetHeight: 240,
-        downsampleMethod: 'box',
-        paletteMode: 'preset',
-        retroPalette: 'APOLLO',
-        colorMetric: 'oklab',
-        ditherType: 'none',
-        ditherAmount: 0.65,
-        enhance: 1.1,
-        refineEdges: 160,
-        despeckle: false,
-        smooth: 0,
-        smoothIter: 0,
-        stroke: 'none',
-        strokeOpacity: 0.0,
-        resize: false
-      },
-      endesga32: {
-        targetWidth: 256,
-        targetHeight: 256,
-        downsampleMethod: 'box',
-        paletteMode: 'preset',
-        retroPalette: 'ENDESGA-32',
-        colorMetric: 'oklab',
-        ditherType: 'none',
-        ditherAmount: 0.65,
-        enhance: 1.1,
-        refineEdges: 160,
-        despeckle: false,
-        smooth: 0,
-        smoothIter: 0,
-        stroke: 'none',
-        strokeOpacity: 0.0,
-        resize: false
-      },
-      aap64: {
-        targetWidth: 256,
-        targetHeight: 256,
-        downsampleMethod: 'box',
-        paletteMode: 'preset',
-        retroPalette: 'AAP-64',
-        colorMetric: 'oklab',
-        ditherType: 'none',
-        ditherAmount: 0.65,
-        enhance: 1.0,
-        refineEdges: 160,
-        despeckle: false,
-        smooth: 0,
-        smoothIter: 0,
-        stroke: 'none',
-        strokeOpacity: 0.0,
-        resize: false
-      },
-      db16: {
-        targetWidth: 192,
-        targetHeight: 192,
-        downsampleMethod: 'box',
-        paletteMode: 'preset',
-        retroPalette: 'DawnBringer-16',
-        colorMetric: 'oklab',
-        ditherType: 'none',
-        ditherAmount: 0.65,
-        enhance: 1.2,
-        refineEdges: 160,
-        despeckle: false,
-        smooth: 0,
-        smoothIter: 0,
-        stroke: 'none',
-        strokeOpacity: 0.0,
-        resize: false
-      },
-      db32: {
-        targetWidth: 256,
-        targetHeight: 256,
-        downsampleMethod: 'box',
-        paletteMode: 'preset',
-        retroPalette: 'DawnBringer-32',
-        colorMetric: 'oklab',
-        ditherType: 'none',
-        ditherAmount: 0.65,
-        enhance: 1.3,
-        refineEdges: 160,
-        despeckle: false,
-        smooth: 0,
-        smoothIter: 0,
-        stroke: 'none',
-        strokeOpacity: 0.0,
-        resize: false
-      },
-      lospec500: {
-        targetWidth: 240,
-        targetHeight: 240,
-        downsampleMethod: 'box',
-        paletteMode: 'preset',
-        retroPalette: 'LOSPEC-500',
-        colorMetric: 'oklab',
-        ditherType: 'none',
-        ditherAmount: 0.65,
-        enhance: 1.0,
-        refineEdges: 160,
-        despeckle: false,
-        smooth: 0,
-        smoothIter: 0,
-        stroke: 'none',
-        strokeOpacity: 0.0,
-        resize: false
-      },
-      resurrect64: {
-        targetWidth: 256,
-        targetHeight: 256,
-        downsampleMethod: 'box',
-        paletteMode: 'preset',
-        retroPalette: 'RESURRECT-64',
-        colorMetric: 'oklab',
-        ditherType: 'none',
-        ditherAmount: 0.65,
-        enhance: 1.1,
-        refineEdges: 160,
-        despeckle: false,
-        smooth: 0,
-        smoothIter: 0,
-        stroke: 'none',
-        strokeOpacity: 0.0,
-        resize: false
-      },
-      sweetie16: {
-        targetWidth: 192,
-        targetHeight: 192,
-        downsampleMethod: 'box',
-        paletteMode: 'preset',
-        retroPalette: 'Sweetie-16',
-        colorMetric: 'oklab',
-        ditherType: 'none',
-        ditherAmount: 0.65,
-        enhance: 1.1,
-        refineEdges: 160,
-        despeckle: false,
-        smooth: 0,
-        smoothIter: 0,
-        stroke: 'none',
-        strokeOpacity: 0.0,
-        resize: false
-      },
       greyscale: {
         targetWidth: 180,
         targetHeight: 180,
@@ -6431,7 +7042,7 @@
         refineEdges: 160,
         despeckle: true,
         smooth: 1,
-        smoothIter: 1,
+        smoothIter: 2,
         stroke: 'outside',
         strokeOpacity: 1.0,
         strokeColor: '#ffffff',
@@ -6485,7 +7096,7 @@
         paletteDither: false,
         ditherType: 'none',
         ditherAmount: 0.8,
-        enhance: 1.5,
+        enhance: 1.2,
         refineEdges: 160,
         despeckle: false,
         smooth: 1,
@@ -6603,6 +7214,22 @@
     function closeModal(id) {
       const modal = document.getElementById(id);
       if (modal) modal.style.display = 'none';
+    }
+
+    // Themed (base-select) dropdowns open their list on Up/Down; step the value instead, like a native select
+    if (CSS.supports('appearance', 'base-select')) {
+      document.addEventListener('keydown', (e) => {
+        const sel = e.target;
+        if (!(sel instanceof HTMLSelectElement) || e.altKey || sel.matches(':open')) return;
+        const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+        if (!step) return;
+        e.preventDefault();
+        const i = sel.selectedIndex + step;
+        if (i < 0 || i >= sel.options.length) return;
+        sel.selectedIndex = i;
+        sel.dispatchEvent(new Event('input', { bubbles: true }));
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      });
     }
 
     window.addEventListener('keydown', (e) => {
