@@ -7607,15 +7607,15 @@
 
     document.getElementById('btnCopyClipboard').onclick = async () => {
       const expCanvas = getExportCanvas();
-      expCanvas.toBlob(async (blob) => {
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          setStatusMessage('Image copied to clipboard.');
-          exportModal.style.display = 'none';
-        } catch (err) {
-          setStatusMessage('Clipboard copy failed: ' + err);
-        }
-      }, 'image/png');
+      // Safari only allows the write during the click itself, so it gets the blob as a promise
+      const blob = new Promise(resolve => expCanvas.toBlob(resolve, 'image/png'));
+      try {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        setStatusMessage('Image copied to clipboard.');
+        exportModal.style.display = 'none';
+      } catch (err) {
+        setStatusMessage('Clipboard copy failed: ' + err);
+      }
     };
 
     // --- Modal Management & Dialog Controllers ---
